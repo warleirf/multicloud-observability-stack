@@ -1,5 +1,0 @@
-FROM zabbix/zabbix-server-pgsql:alpine-6.4-latest
-
-ENV AWS_DEFAULT_REGION=us-east-1
-
-LABEL maintainer="Warlei Faria <warlei.com.br>"
