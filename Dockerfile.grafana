@@ -1,0 +1,7 @@
+FROM grafana/grafana:10.1.0
+
+ENV GF_INSTALL_PLUGINS="alexanderzobnin-zabbix-app,oci-datasource"
+
+COPY ./grafana/provisioning /etc/grafana/provisioning
+
+LABEL maintainer="Warlei Faria <warlei.com.br>"
