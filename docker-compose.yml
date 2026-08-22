@@ -1,98 +1,54 @@
-services:
-  zabbix-db:
-    image: postgres:15-alpine
-    container_name: zabbix-db
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - zabbix-db-data:/var/lib/postgresql/data
-    networks:
-      - obs-network
+apiVersion: 1
 
-  zabbix-server:
-    image: zabbix/zabbix-server-pgsql:alpine-6.4-latest
-    container_name: zabbix-server
-    restart: always
-    ports:
-      - "10051:10051"
-    environment:
-      DB_SERVER_HOST: zabbix-db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-    depends_on:
-      - zabbix-db
-    networks:
-      - obs-network
+datasources:
+  - name: AWS CloudWatch
+    type: cloudwatch
+    access: proxy
+    jsonData:
+      authType: keys
+      defaultRegion: ${AWS_DEFAULT_REGION}
+    secureJsonData:
+      accessKey: ${AWS_ACCESS_KEY_ID}
+      secretKey: ${AWS_SECRET_ACCESS_KEY}
 
-  zabbix-web:
-    image: zabbix/zabbix-web-nginx-pgsql:alpine-6.4-latest
-    container_name: zabbix-web
-    restart: always
-    ports:
-      - "8080:8080"
-    environment:
-      DB_SERVER_HOST: zabbix-db
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      ZBX_SERVER_HOST: zabbix-server
-      PHP_TZ: America/Sao_Paulo
-    depends_on:
-      - zabbix-server
-    networks:
-      - obs-network
+  - name: Azure Monitor
+    type: grafana-azure-monitor-datasource
+    access: proxy
+    jsonData:
+      clientId: ${AZURE_CLIENT_ID}
+      tenantId: ${AZURE_TENANT_ID}
+      subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+    secureJsonData:
+      clientSecret: ${AZURE_CLIENT_SECRET}
 
-  grafana:
-    image: grafana/grafana:10.4.0
-    container_name: grafana
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
-      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app 4.4.3,oci-metrics-datasource
-      - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=alexanderzobnin-zabbix-app,oci-datasource,oracle-oci-datasource,oci-metrics-datasource
-      # AWS
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
-      # Azure
-      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
-      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
-      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
-      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}
-      # GCP
-      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
-      - GCP_CLIENT_EMAIL=${GCP_CLIENT_EMAIL}
-      - GCP_PRIVATE_KEY=${GCP_PRIVATE_KEY}
-      # OCI
-      - OCI_TENANCY_OCID=${OCI_TENANCY_OCID}
-      - OCI_USER_OCID=${OCI_USER_OCID}
-      - OCI_FINGERPRINT=${OCI_FINGERPRINT}
-      - OCI_REGION=${OCI_REGION}
-      - OCI_PRIVATE_KEY=${OCI_PRIVATE_KEY}
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./warleirf@hotmail.com-2026-08-15T20_20_03.352Z.pem:/etc/grafana/warleirf@hotmail.com-2026-08-15T20_20_03.352Z.pem:ro
-      - ./grafana/site-portifolio-429900-1bef20715226.json:/etc/grafana/site-portifolio-429900-1bef20715226.json:ro
-    depends_on:
-      - zabbix-web
-    networks:
-      - obs-network
+  - name: GCP Cloud Monitoring
+    type: stackdriver
+    access: proxy
+    jsonData:
+      authenticationType: jwt
+      clientEmail: ${GCP_CLIENT_EMAIL}
+      defaultProject: ${GCP_PROJECT_ID}
+      tokenUri: https://oauth2.googleapis.com/token
+    secureJsonData:
+      privateKey: ${GCP_PRIVATE_KEY}
 
-networks:
-  obs-network:
-    driver: bridge
+  - name: Oracle Cloud Infrastructure Metrics
+    type: oci-metrics-datasource
+    access: proxy
+    jsonData:
+      authType: API Key
+      tenancyMode: single
+      tenancy: ${OCI_TENANCY_OCID}
+      user: ${OCI_USER_OCID}
+      fingerprint: ${OCI_FINGERPRINT}
+      region: ${OCI_REGION}
+    secureJsonData:
+      privateKey: ${OCI_PRIVATE_KEY}
 
-volumes:
-  zabbix-db-data:
-  grafana-data:
+  - name: Zabbix
+    type: alexanderzobnin-zabbix-datasource
+    access: proxy
+    url: http://zabbix-web:8080/api_jsonrpc.php
+    jsonData:
+      username: Admin
+      password: zabbix
